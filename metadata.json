@@ -1,0 +1,8 @@
+{
+  "name": "StudyBud",
+  "description": "An advanced AI tutoring application with Socratic logic, vision engine, document analysis, quiz generation, and voice study mode.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
