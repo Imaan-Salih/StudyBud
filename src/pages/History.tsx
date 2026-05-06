@@ -36,6 +36,7 @@ export const History = () => {
         setDeletingId(null);
       } catch (error) {
         console.error("Error moving document to recycle bin:", error);
+        handleFirestoreError(error, OperationType.WRITE, 'recycleBin');
       }
     } else {
       // Ask for confirmation

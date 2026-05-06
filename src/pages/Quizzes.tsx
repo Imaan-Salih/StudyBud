@@ -165,7 +165,7 @@ export const Quizzes = () => {
       currentParts.push({ text: `Please thoroughly analyze the content of this document and generate a structured multiple-choice quiz with EXACTLY ${questionCount} questions based on the key learning concepts within it.` });
 
       const response = await ai.models.generateContent({
-        model: 'gemini-3.1-pro-preview',
+        model: 'gemini-3-flash-preview',
         contents: [
           { role: 'user', parts: currentParts }
         ],
