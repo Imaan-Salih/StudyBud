@@ -14,6 +14,8 @@ export const History = () => {
 
   const handleDelete = async (e: React.MouseEvent, id: string, type: string) => {
     e.preventDefault(); // Prevent navigating to the item
+    e.stopPropagation(); // Prevent the Link from acting
+
     if (deletingId === id) {
       // Confirm delete: Move to recycle bin
       try {
@@ -23,20 +25,34 @@ export const History = () => {
         
         if (docSnap.exists()) {
           // Save to recycle bin
-          await setDoc(doc(db, 'recycleBin', id), {
-            userId: user?.uid,
-            originalCollection: collectionName,
-            itemData: docSnap.data(),
-            deletedAt: new Date().toISOString()
-          });
+          try {
+            await setDoc(doc(db, 'recycleBin', id), {
+              userId: user?.uid,
+              originalCollection: collectionName,
+              itemData: docSnap.data(),
+              deletedAt: new Date().toISOString()
+            });
+          } catch (e) {
+            console.error("Failed to set in recycleBin:", e);
+            throw e;
+          }
           
           // Delete from original collection
-          await deleteDoc(docRef);
+          try {
+            await deleteDoc(docRef);
+          } catch (e) {
+            console.error("Failed to delete from " + collectionName + ":", e);
+            throw e;
+          }
         }
         setDeletingId(null);
       } catch (error) {
-        console.error("Error moving document to recycle bin:", error);
-        handleFirestoreError(error, OperationType.WRITE, 'recycleBin');
+        if (error instanceof Error) {
+          console.error("Delete sequence failed. Message:", error.message, "Stack:", error.stack);
+        } else {
+          console.error("Delete sequence failed:", error);
+        }
+        handleFirestoreError(error, OperationType.WRITE, 'deleteSequence');
       }
     } else {
       // Ask for confirmation
