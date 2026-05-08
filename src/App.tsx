@@ -17,6 +17,7 @@ import { QuizRunner } from './pages/QuizRunner';
 import { History } from './pages/History';
 import { Settings } from './pages/Settings';
 import { RecycleBin } from './pages/RecycleBin';
+import { Analytics } from '@vercel/analytics/react';
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, loading } = useAuth();
@@ -45,6 +46,7 @@ export default function App() {
               </Route>
             </Routes>
           </BrowserRouter>
+          <Analytics />
         </AuthProvider>
       </ThemeProvider>
     </ErrorBoundary>

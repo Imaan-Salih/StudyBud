@@ -150,7 +150,10 @@ Do NOT repeat the following questions:
   
   let score = 0;
   quiz.questions.forEach((q: any, i: number) => {
-    if (userAnswers[i] === q.answer) score++;
+    const userAns = userAnswers[i];
+    if (userAns && String(userAns).trim() === String(q.answer).trim()) {
+      score++;
+    }
   });
 
   if (isFinished) {
@@ -196,7 +199,7 @@ Do NOT repeat the following questions:
             <h3 className="text-2xl font-bold text-slate-900 dark:text-white ml-2">Review Answers</h3>
             {quiz.questions.map((q: any, i: number) => {
               const uAns = userAnswers[i];
-              const isCorrect = uAns === q.answer;
+              const isCorrect = uAns && String(uAns).trim() === String(q.answer).trim();
               const isUnanswered = !uAns;
               return (
                 <div key={i} className="bg-white dark:bg-slate-800 rounded-2xl p-6 border-l-4 shadow-sm" style={{ borderLeftColor: isCorrect ? '#10b981' : isUnanswered ? '#94a3b8' : '#ef4444' }}>
@@ -276,8 +279,8 @@ Do NOT repeat the following questions:
 
           <div className="space-y-3">
             {question.options.map((option: string, idx: number) => {
-              const isSelected = selectedAnswer === option;
-              const isCorrect = option === question.answer;
+              const isSelected = selectedAnswer && String(selectedAnswer).trim() === String(option).trim();
+              const isCorrect = option && String(option).trim() === String(question.answer).trim();
               
               let buttonClass = "w-full text-left p-4 rounded-2xl border-2 transition-all ";
               
