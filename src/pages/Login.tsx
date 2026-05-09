@@ -76,8 +76,8 @@ export const Login = () => {
       className="min-h-[100dvh] flex items-center justify-center bg-slate-50 dark:bg-slate-900 p-4 pt-[calc(1rem+env(safe-area-inset-top))] pb-[calc(1rem+env(safe-area-inset-bottom))] transition-colors"
     >
       <div className="max-w-md w-full bg-white dark:bg-slate-800 rounded-2xl shadow-xl p-8 text-center transition-colors">
-        <div className="w-16 h-16 bg-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg shadow-indigo-200">
-          <BrainCircuit className="w-8 h-8 text-white" />
+        <div className="w-20 h-20 rounded-2xl overflow-hidden flex-shrink-0 flex items-center justify-center mx-auto mb-6 shadow-lg shadow-black/5 dark:shadow-white/5">
+          <img src="/logo.png" alt="StudyBud Logo" className="w-full h-full object-cover" />
         </div>
         <h1 className="text-3xl font-bold text-slate-900 dark:text-white mb-2">
           {isSignUp ? 'Create an Account' : 'Welcome Back'}

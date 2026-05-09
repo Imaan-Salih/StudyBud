@@ -34,8 +34,8 @@ export const Layout = () => {
       {/* Sidebar Desktop */}
       <aside className="hidden md:flex flex-col w-64 bg-white border-r border-slate-200 dark:bg-slate-800 dark:border-slate-700 transition-colors">
         <div className="p-6 flex items-center gap-3">
-          <div className="bg-indigo-600 p-2 rounded-xl">
-            <BrainCircuit className="w-6 h-6 text-white" />
+          <div className="w-10 h-10 rounded-xl overflow-hidden flex-shrink-0 flex items-center justify-center">
+            <img src="/logo.png" alt="StudyBud Logo" className="w-full h-full object-cover" />
           </div>
           <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-violet-600">
             StudyBud
