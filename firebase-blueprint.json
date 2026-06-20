@@ -75,6 +75,32 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["userId", "sessionId", "title", "questions", "createdAt"]
+    },
+    "QuizResult": {
+      "title": "QuizResult",
+      "description": "Result of taking a quiz",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "quizId": { "type": "string" },
+        "title": { "type": "string" },
+        "score": { "type": "number" },
+        "total": { "type": "number" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "quizId", "score", "total", "timestamp"]
+    },
+    "RecycleBinItem": {
+      "title": "RecycleBinItem",
+      "description": "Deleted items preserved for 30 days",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "originalCollection": { "type": "string" },
+        "itemData": { "type": "object" },
+        "deletedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "originalCollection", "itemData", "deletedAt"]
     }
   },
   "firestore": {
@@ -93,6 +119,14 @@
     "/quizzes/{quizId}": {
       "schema": { "$ref": "#/entities/Quiz" },
       "description": "Generated quizzes"
+    },
+    "/quizResults/{resultId}": {
+      "schema": { "$ref": "#/entities/QuizResult" },
+      "description": "Quiz attempt records"
+    },
+    "/recycleBin/{itemId}": {
+      "schema": { "$ref": "#/entities/RecycleBinItem" },
+      "description": "Soft deleted items"
     }
   }
 }

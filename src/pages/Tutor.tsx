@@ -1,8 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { GoogleGenAI, Type, FunctionDeclaration } from '@google/genai';
-import { Send, Image as ImageIcon, Mic, Paperclip, Loader2, Play, Square, X, BrainCircuit, FileText, Camera } from 'lucide-react';
+import { Send, Image as ImageIcon, Mic, Paperclip, Loader2, Play, Square, X, BrainCircuit, FileText, Camera, Folder } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
+import remarkMath from 'remark-math';
+import rehypeKatex from 'rehype-katex';
+import remarkGfm from 'remark-gfm';
+import 'katex/dist/katex.min.css';
 import mammoth from 'mammoth';
 import JSZip from 'jszip';
 import { collection, addDoc, serverTimestamp, doc, updateDoc, onSnapshot, query, orderBy, getDoc } from 'firebase/firestore';
@@ -10,6 +14,8 @@ import { db, handleFirestoreError, OperationType } from '../firebase';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { Modal } from '../components/Modal';
+import { withRetry } from '../utils/retryGemini';
+import { preprocessLaTeX } from '../utils/latex';
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
@@ -77,10 +83,7 @@ export const Tutor = () => {
     }
 
     try {
-      // Explicitly request microphone permission first
-      // This helps in iframe environments where SpeechRecognition might fail with not-allowed
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      // Immediately stop the tracks since we just needed to trigger the permission prompt
       stream.getTracks().forEach(track => track.stop());
     } catch (err: any) {
       setModalState({
@@ -143,7 +146,8 @@ export const Tutor = () => {
 Your goal is to help the student learn effectively. You should directly answer the student's questions clearly and accurately.
 After providing a clear answer, you can optionally ask a brief follow-up question to check their understanding or encourage deeper thinking.
 If the user uploads an image, PDF, or text document, analyze it thoroughly and help them study the material. Explain key concepts found in the document.
-If the user asks you to create a quiz or flashcards, use the generateQuiz tool to create it for them, and then tell them the quiz has been generated and they can find it in the Quizzes tab. Ensure you generate the exact number of questions the user requests. If they don't specify, default to 5 questions.`;
+When explaining math or science concepts, ALWAYS format mathematical equations, variables, and expressions using standard LaTeX syntax. Use $...$ for inline math and $$...$$ for block equations. Do not escape the dollar signs.
+If the user asks you to create a quiz, use the generateQuiz tool to create it for them, and then tell them the quiz has been generated and they can find it in the Quizzes tab. Ensure you generate the exact number of questions the user requests. If they don't specify, default to 5 questions.`;
 
   useEffect(() => {
     if (!user || !currentSessionId) return;
@@ -151,7 +155,8 @@ If the user asks you to create a quiz or flashcards, use the generateQuiz tool t
     const sessionRef = doc(db, 'studySessions', currentSessionId);
     const unsubscribe = onSnapshot(sessionRef, (docSnap) => {
       if (docSnap.exists()) {
-        setMessages(docSnap.data().messages || []);
+        const data = docSnap.data();
+        setMessages(data.messages || []);
       }
     }, (error) => {
       handleFirestoreError(error, OperationType.GET, `studySessions/${currentSessionId}`);
@@ -169,8 +174,8 @@ If the user asks you to create a quiz or flashcards, use the generateQuiz tool t
     if (file) {
       const validTypes = [
         'application/pdf', 'text/plain', 'text/csv', 'text/html', 'text/xml', 'application/rtf',
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
-        'application/vnd.openxmlformats-officedocument.presentationml.presentation' // .pptx
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'application/vnd.openxmlformats-officedocument.presentationml.presentation'
       ];
       const isValidExtension = file.name.toLowerCase().endsWith('.docx') || file.name.toLowerCase().endsWith('.pptx');
 
@@ -305,8 +310,8 @@ If the user asks you to create a quiz or flashcards, use the generateQuiz tool t
       
       setSelectedFile(null);
 
-      const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
+      const response = await withRetry(() => ai.models.generateContent({
+        model: 'gemini-2.5-flash',
         contents: [
           ...historyParts,
           { role: 'user', parts: currentParts }
@@ -315,7 +320,7 @@ If the user asks you to create a quiz or flashcards, use the generateQuiz tool t
           systemInstruction,
           tools: [{ functionDeclarations: [generateQuizTool] }]
         }
-      });
+      }));
 
       let aiResponse = response.text || '';
       
@@ -354,13 +359,31 @@ If the user asks you to create a quiz or flashcards, use the generateQuiz tool t
 
     } catch (error: any) {
       console.error("Error generating response:", error);
+      
+      let errorMessage = error.message || "Unknown error";
+      if (errorMessage.includes("503") || errorMessage.includes("high demand") || errorMessage.includes("UNAVAILABLE")) {
+        errorMessage = "The AI tutor is currently experiencing high demand. Please try again in a few moments.";
+      } else if (errorMessage.includes("{")) {
+        try {
+            const jsonPart = errorMessage.substring(errorMessage.indexOf("{"));
+            const parsed = JSON.parse(jsonPart);
+            if (parsed.error && parsed.error.message) {
+                errorMessage = parsed.error.message;
+                if (errorMessage.includes("high demand")) {
+                    errorMessage = "The AI tutor is currently experiencing high demand. Please try again in a few moments.";
+                }
+            }
+        } catch (e) {
+            // ignore
+        }
+      }
+      
       setModalState({
         isOpen: true,
-        title: 'Error',
-        message: "Error generating response: " + (error.message || "Unknown error")
+        title: errorMessage.includes("high demand") ? 'High Demand' : 'Error',
+        message: errorMessage
       });
       
-      // Remove the user message we just added if it failed
       setMessages(messages);
     } finally {
       setLoading(false);
@@ -375,7 +398,7 @@ If the user asks you to create a quiz or flashcards, use the generateQuiz tool t
       className="flex-1 flex flex-col h-full bg-slate-50 dark:bg-slate-900 transition-colors"
     >
       {/* Header */}
-      <header className="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 p-4 flex items-center justify-between transition-colors">
+      <header className="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 p-4 flex flex-col sm:flex-row sm:items-center justify-between transition-colors gap-4">
         <div>
           <h2 className="text-lg font-bold text-slate-900 dark:text-white">Socratic AI Tutor</h2>
           <p className="text-sm text-slate-500 dark:text-slate-400">Ask questions, upload notes, or take a photo.</p>
@@ -419,7 +442,7 @@ If the user asks you to create a quiz or flashcards, use the generateQuiz tool t
                   </div>
                 )}
                 <div className={`prose prose-sm max-w-none dark:prose-invert ${msg.role === 'user' ? 'prose-invert' : ''}`}>
-                  <ReactMarkdown>{msg.content}</ReactMarkdown>
+                  <ReactMarkdown remarkPlugins={[remarkMath, remarkGfm]} rehypePlugins={[rehypeKatex]}>{preprocessLaTeX(msg.content)}</ReactMarkdown>
                 </div>
                 {msg.role === 'model' && (
                   <button 

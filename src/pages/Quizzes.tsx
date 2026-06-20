@@ -9,6 +9,7 @@ import { GoogleGenAI, Type, FunctionDeclaration } from '@google/genai';
 import mammoth from 'mammoth';
 import JSZip from 'jszip';
 import { Modal } from '../components/Modal';
+import { withRetry } from '../utils/retryGemini';
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
@@ -164,16 +165,16 @@ export const Quizzes = () => {
 
       currentParts.push({ text: `Please thoroughly analyze the content of this document and generate a structured multiple-choice quiz with EXACTLY ${questionCount} questions based on the key learning concepts within it.` });
 
-      const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
+      const response = await withRetry(() => ai.models.generateContent({
+        model: 'gemini-2.5-flash',
         contents: [
           { role: 'user', parts: currentParts }
         ],
         config: {
-          systemInstruction: `You are an expert educational AI. Your single task is to generate a relevant, highly-accurate multiple-choice quiz with exactly ${questionCount} questions based on the document provided. YOU MUST output the quiz using the generateQuiz tool. If you do not use the tool, the request will fail.`,
+          systemInstruction: `You are an expert educational AI. Your single task is to generate a relevant, highly-accurate multiple-choice quiz with exactly ${questionCount} questions based on the document provided. YOU MUST output the quiz using the generateQuiz tool. If you do not use the tool, the request will fail. Important: When generating math or science questions, ALWAYS format mathematical equations, variables, and expressions using standard LaTeX syntax. Use \`$...\$\` for inline math and \`$$...$$\` for block equations.`,
           tools: [{ functionDeclarations: [generateQuizTool] }]
         }
-      });
+      }));
       
       let quizGenerated = false;
 
@@ -203,10 +204,29 @@ export const Quizzes = () => {
 
     } catch (error: any) {
       console.error("Error generating quiz directly:", error);
+
+      let errorMessage = error.message || "Unknown error";
+      if (errorMessage.includes("503") || errorMessage.includes("high demand") || errorMessage.includes("UNAVAILABLE")) {
+        errorMessage = "The AI model is currently experiencing high demand. Please try again in a few moments.";
+      } else if (errorMessage.includes("{")) {
+        try {
+            const jsonPart = errorMessage.substring(errorMessage.indexOf("{"));
+            const parsed = JSON.parse(jsonPart);
+            if (parsed.error && parsed.error.message) {
+                errorMessage = parsed.error.message;
+                if (errorMessage.includes("high demand")) {
+                    errorMessage = "The AI model is currently experiencing high demand. Please try again in a few moments.";
+                }
+            }
+        } catch (e) {
+            // ignore
+        }
+      }
+
       setModalState({
         isOpen: true,
-        title: 'Error',
-        message: "Error generating quiz: " + (error.message || "Unknown error")
+        title: errorMessage.includes("high demand") ? 'High Demand' : 'Error',
+        message: errorMessage
       });
     } finally {
       setIsGenerating(false);
@@ -227,35 +247,37 @@ export const Quizzes = () => {
               <BrainCircuit className="w-8 h-8 text-emerald-500" />
               Your Quizzes
             </h1>
-            <p className="text-slate-500 dark:text-slate-400 mt-2 text-lg">Review flashcards and test your knowledge.</p>
+            <p className="text-slate-500 dark:text-slate-400 mt-2 text-lg">Review and test your knowledge.</p>
           </div>
           
-          <div className="relative">
-             <input 
-              type="file" 
-              accept="image/*,application/pdf,text/plain,text/csv,text/html,text/xml,application/rtf,.docx,.pptx" 
-              className="hidden" 
-              ref={fileInputRef}
-              onChange={handleFileSelect}
-              disabled={isGenerating}
-            />
-            <button 
-              onClick={() => fileInputRef.current?.click()}
-              disabled={isGenerating}
-              className="flex items-center justify-center gap-2 bg-emerald-600 text-white px-5 py-2.5 rounded-xl font-medium hover:bg-emerald-700 transition-colors shadow-sm disabled:opacity-70"
-            >
-              {isGenerating ? (
-                <>
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  Generating...
-                </>
-              ) : (
-                <>
-                  <Plus className="w-5 h-5" />
-                  Generate from Document
-                </>
-              )}
-            </button>
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+            <div className="relative">
+               <input 
+                type="file" 
+                accept="image/*,application/pdf,text/plain,text/csv,text/html,text/xml,application/rtf,.docx,.pptx" 
+                className="hidden" 
+                ref={fileInputRef}
+                onChange={handleFileSelect}
+                disabled={isGenerating}
+              />
+              <button 
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isGenerating}
+                className="flex items-center justify-center gap-2 bg-emerald-600 text-white px-5 py-2.5 rounded-xl font-medium hover:bg-emerald-700 transition-colors shadow-sm disabled:opacity-70 w-full"
+              >
+                {isGenerating ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <Plus className="w-5 h-5" />
+                    Generate from Document
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </header>
 
@@ -317,24 +339,26 @@ export const Quizzes = () => {
       </div>
 
       <Modal isOpen={showConfigModal} onClose={() => { setShowConfigModal(false); setPendingFile(null); }} title="Quiz Configuration">
-        <div className="mb-6">
-          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-            Number of Questions
-          </label>
-          <div className="flex items-center gap-4">
-            <input 
-              type="range" 
-              min="1" 
-              max="20" 
-              value={questionCount} 
-              onChange={(e) => setQuestionCount(parseInt(e.target.value))}
-              className="flex-1 accent-emerald-600"
-            />
-            <span className="font-bold text-lg text-emerald-600 dark:text-emerald-400 w-8 text-center">{questionCount}</span>
+        <div className="space-y-6 mb-6">
+          <div>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+              Number of Questions
+            </label>
+            <div className="flex items-center gap-4">
+              <input 
+                type="range" 
+                min="1" 
+                max="20" 
+                value={questionCount} 
+                onChange={(e) => setQuestionCount(parseInt(e.target.value))}
+                className="flex-1 accent-emerald-600"
+              />
+              <span className="font-bold text-lg text-emerald-600 dark:text-emerald-400 w-8 text-center">{questionCount}</span>
+            </div>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
+              File selected: {pendingFile?.name}
+            </p>
           </div>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
-            File selected: {pendingFile?.name}
-          </p>
         </div>
         <div className="flex justify-end gap-3">
           <button

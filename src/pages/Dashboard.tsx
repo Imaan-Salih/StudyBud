@@ -3,7 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { Link } from 'react-router-dom';
-import { MessageSquare, BrainCircuit, FileText, ArrowRight, Clock } from 'lucide-react';
+import { MessageSquare, BrainCircuit, ArrowRight, Clock } from 'lucide-react';
 import { motion } from 'motion/react';
 
 export const Dashboard = () => {
@@ -69,7 +69,7 @@ export const Dashboard = () => {
           <h1 className="text-3xl font-bold text-slate-900 dark:text-white tracking-tight">
             {getGreeting()}, {user?.displayName?.split(' ')[0] || 'Student'}! 👋
           </h1>
-          <p className="text-slate-500 dark:text-slate-400 mt-2 text-lg">What are we learning today?</p>
+          <p className="text-slate-500 dark:text-slate-400 mt-2 text-lg">Your learning journey continues.</p>
         </header>
 
         {/* Quick Actions */}
@@ -84,7 +84,7 @@ export const Dashboard = () => {
           <Link to="/quizzes" className="group relative overflow-hidden bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-6 rounded-2xl shadow-sm hover:shadow-md transition-all hover:-translate-y-1">
             <BrainCircuit className="w-8 h-8 mb-4 text-emerald-500" />
             <h3 className="text-xl font-semibold text-slate-900 dark:text-white mb-1">Practice Quizzes</h3>
-            <p className="text-slate-500 dark:text-slate-400 text-sm">Review your flashcards</p>
+            <p className="text-slate-500 dark:text-slate-400 text-sm">Review your generated quizzes</p>
           </Link>
 
           <Link to="/history" className="group relative overflow-hidden bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-6 rounded-2xl shadow-sm hover:shadow-md transition-all hover:-translate-y-1 cursor-pointer">
@@ -174,3 +174,4 @@ export const Dashboard = () => {
     </motion.div>
   );
 };
+

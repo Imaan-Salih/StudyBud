@@ -63,7 +63,9 @@ export const RecycleBin = () => {
       setDeletedItems(validItems);
       setLoading(false);
     }, (error) => {
+      console.error("Firestore error for recycleBin:", error);
       handleFirestoreError(error, OperationType.LIST, 'recycleBin');
+      setLoading(false);
     });
 
     return () => unsubscribe();

@@ -99,7 +99,9 @@ export const History = () => {
       sessionsLoaded = true;
       combineAndSort();
     }, (error) => {
+      console.error("Firestore error for studySessions:", error);
       handleFirestoreError(error, OperationType.LIST, 'studySessions');
+      setLoading(false);
     });
 
     const quizzesQuery = query(
@@ -122,7 +124,9 @@ export const History = () => {
       quizzesLoaded = true;
       combineAndSort();
     }, (error) => {
+      console.error("Firestore error for quizzes:", error);
       handleFirestoreError(error, OperationType.LIST, 'quizzes');
+      setLoading(false);
     });
 
     return () => {
@@ -139,12 +143,14 @@ export const History = () => {
       className="flex-1 overflow-y-auto bg-slate-50 dark:bg-slate-900 p-4 md:p-8 transition-colors"
     >
       <div className="max-w-4xl mx-auto">
-        <header className="mb-10">
-          <h1 className="text-3xl font-bold text-slate-900 dark:text-white tracking-tight flex items-center gap-3">
-            <Clock className="w-8 h-8 text-indigo-500" />
-            Study History
-          </h1>
-          <p className="text-slate-500 dark:text-slate-400 mt-2 text-lg">All your past study sessions and quizzes in one place.</p>
+        <header className="mb-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold text-slate-900 dark:text-white tracking-tight flex items-center gap-3">
+              <Clock className="w-8 h-8 text-indigo-500" />
+              Study History
+            </h1>
+            <p className="text-slate-500 dark:text-slate-400 mt-2 text-lg">All your past study sessions and quizzes in one place.</p>
+          </div>
         </header>
 
         {loading ? (
@@ -176,9 +182,11 @@ export const History = () => {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-1 gap-1">
-                      <span className={`text-xs font-semibold uppercase tracking-wider ${item.type === 'session' ? 'text-indigo-500' : 'text-emerald-500'}`}>
-                        {item.type === 'session' ? 'Tutor Session' : 'Practice Quiz'}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className={`text-xs font-semibold uppercase tracking-wider ${item.type === 'session' ? 'text-indigo-500' : 'text-emerald-500'}`}>
+                          {item.type === 'session' ? 'Tutor Session' : 'Practice Quiz'}
+                        </span>
+                      </div>
                       <span className="text-xs text-slate-400 dark:text-slate-500 flex items-center gap-1">
                         <Clock className="w-3 h-3 flex-shrink-0" />
                         <span className="truncate">{new Date(item.date).toLocaleDateString()} at {new Date(item.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
