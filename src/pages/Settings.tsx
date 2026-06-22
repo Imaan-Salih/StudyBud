@@ -3,7 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { auth } from '../firebase';
 import { updateEmail, updatePassword, deleteUser } from 'firebase/auth';
-import { Settings as SettingsIcon, Moon, Sun, Mail, Lock, Trash2, Heart, AlertCircle, LogOut } from 'lucide-react';
+import { Settings as SettingsIcon, Moon, Sun, Mail, Lock, Trash2, Heart, AlertCircle, LogOut, BrainCircuit } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { Modal } from '../components/Modal';
@@ -230,19 +230,37 @@ export const Settings = () => {
           {/* Credits */}
           <section className="flex justify-center pt-8 pb-4">
             <button 
-              onClick={() => setShowCredits(!showCredits)}
+              onClick={() => setShowCredits(true)}
               className="flex items-center gap-2 px-6 py-3 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-full font-medium hover:bg-slate-200 dark:hover:bg-slate-700 transition-all shadow-sm"
             >
-              <Heart className={`w-5 h-5 ${showCredits ? 'text-red-500 fill-red-500' : 'text-slate-400'}`} />
-              Credits
+              <Heart className="w-5 h-5 text-red-500 fill-red-500" />
+              View Credits
             </button>
           </section>
           
           {showCredits && (
-            <div className="text-center animate-in fade-in slide-in-from-bottom-4 duration-500">
-              <p className="text-lg font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-500 to-violet-500">
-                MADE BY IMAAN ABDUL-RAZAQ SALIH
-              </p>
+            <div 
+              className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/95 backdrop-blur-md overflow-hidden cursor-pointer" 
+              onClick={() => setShowCredits(false)}
+            >
+              <motion.div 
+                initial={{ y: "100vh" }}
+                animate={{ y: "-100vh" }}
+                transition={{ duration: 12, ease: "linear", repeat: Infinity }}
+                className="text-center w-full px-4"
+              >
+                <div className="w-24 h-24 bg-indigo-600 rounded-full flex items-center justify-center mx-auto mb-8 shadow-2xl shadow-indigo-500/50">
+                  <BrainCircuit className="w-12 h-12 text-white" />
+                </div>
+                <h1 className="text-5xl font-extrabold text-white mb-16 tracking-[0.2em] drop-shadow-lg">STUDY BUD</h1>
+                
+                <h2 className="font-medium text-slate-400 mb-4 tracking-[0.3em] uppercase text-sm">Founder & Creator</h2>
+                <p className="text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-violet-400 mb-16 drop-shadow-sm">
+                  IMAAN ABDUL-RAZAQ
+                </p>
+
+                <p className="text-slate-500 mt-20 text-sm tracking-widest uppercase">Tap anywhere to close</p>
+              </motion.div>
             </div>
           )}
         </div>

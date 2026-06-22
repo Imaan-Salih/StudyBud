@@ -14,7 +14,9 @@ import { GoogleGenAI, Type, FunctionDeclaration } from '@google/genai';
 import { withRetry } from '../utils/retryGemini';
 import { preprocessLaTeX } from '../utils/latex';
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+const ai = new GoogleGenAI({ 
+  apiKey: process.env.GEMINI_API_KEY || (import.meta as any).env.VITE_GEMINI_API_KEY || 'missing_key' 
+});
 
 const generateQuizTool: FunctionDeclaration = {
   name: 'generateQuiz',

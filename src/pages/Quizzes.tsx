@@ -11,7 +11,9 @@ import JSZip from 'jszip';
 import { Modal } from '../components/Modal';
 import { withRetry } from '../utils/retryGemini';
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+const ai = new GoogleGenAI({ 
+  apiKey: process.env.GEMINI_API_KEY || (import.meta as any).env.VITE_GEMINI_API_KEY || 'missing_key' 
+});
 
 const generateQuizTool: FunctionDeclaration = {
   name: 'generateQuiz',

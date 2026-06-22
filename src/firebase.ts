@@ -40,8 +40,10 @@ export interface FirestoreErrorInfo {
 }
 
 export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
+  const errorMessage = error instanceof Error ? error.message : String(error);
+  
   const errInfo: FirestoreErrorInfo = {
-    error: error instanceof Error ? error.message : String(error),
+    error: errorMessage,
     authInfo: {
       userId: auth.currentUser?.uid,
       email: auth.currentUser?.email,
@@ -58,6 +60,11 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
     operationType,
     path
   };
-  console.error('Firestore Error: ', JSON.stringify(errInfo));
-  throw new Error(JSON.stringify(errInfo));
+  console.error('Firestore Error Details: ', JSON.stringify(errInfo));
+  
+  if (errorMessage.includes('offline') || errorMessage.includes('backend didn\'t respond')) {
+    throw new Error('You appear to be offline or have a weak connection. Please check your internet connection.');
+  }
+
+  throw new Error('An error occurred while syncing data with the database. Please try again.');
 }

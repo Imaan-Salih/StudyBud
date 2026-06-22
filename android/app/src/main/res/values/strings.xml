@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">StudyBud</string>
+    <string name="title_activity_main">StudyBud</string>
+    <string name="package_name">com.studybud.app</string>
+    <string name="custom_url_scheme">com.studybud.app</string>
+</resources>
