@@ -168,31 +168,54 @@ export const Quizzes = () => {
       currentParts.push({ text: `Please thoroughly analyze the content of this document and generate a structured multiple-choice quiz with EXACTLY ${questionCount} questions based on the key learning concepts within it.` });
 
       const response = await withRetry(() => ai.models.generateContent({
-        model: 'gemini-2.5-flash',
+        model: 'gemini-2.5-flash-8b',
         contents: [
           { role: 'user', parts: currentParts }
         ],
         config: {
-          systemInstruction: `You are an expert educational AI. Your single task is to generate a relevant, highly-accurate multiple-choice quiz with exactly ${questionCount} questions based on the document provided. YOU MUST output the quiz using the generateQuiz tool. If you do not use the tool, the request will fail. Important: When generating math or science questions, ALWAYS format mathematical equations, variables, and expressions using standard LaTeX syntax. Use \`$...\$\` for inline math and \`$$...$$\` for block equations.`,
-          tools: [{ functionDeclarations: [generateQuizTool] }]
+          systemInstruction: `You are an expert educational AI. Your single task is to generate a relevant, highly-accurate multiple-choice quiz with exactly ${questionCount} questions based on the document provided. Important: When generating math or science questions, ALWAYS format mathematical equations, variables, and expressions using standard LaTeX syntax. Use \`$...\$\` for inline math and \`$$...$$\` for block equations.`,
+          responseMimeType: 'application/json',
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              title: { type: Type.STRING, description: 'A short, descriptive title for the quiz.' },
+              questions: {
+                type: Type.ARRAY,
+                description: `Exactly ${questionCount} multiple-choice questions.`,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    question: { type: Type.STRING, description: 'The question text.' },
+                    options: { type: Type.ARRAY, items: { type: Type.STRING }, description: 'Exactly 4 possible answers.' },
+                    answer: { type: Type.STRING, description: 'The correct answer (must exactly match one of the options).' },
+                    explanation: { type: Type.STRING, description: 'A brief explanation of why the answer is correct.' }
+                  },
+                  required: ['question', 'options', 'answer', 'explanation']
+                }
+              }
+            },
+            required: ['title', 'questions']
+          }
         }
       }));
       
       let quizGenerated = false;
 
-      if (response.functionCalls && response.functionCalls.length > 0) {
-        const call = response.functionCalls.find(c => c.name === 'generateQuiz');
-        if (call) {
-          const args = call.args as any;
+      if (response.text) {
+        try {
+          const parsedRes = JSON.parse(response.text);
+          const args = parsedRes;
           const quizDocRef = await addDoc(collection(db, 'quizzes'), {
             userId: user.uid,
             sessionId: "direct_upload",
-            title: args.title,
-            questions: args.questions,
+            title: args.title || 'Generated Quiz',
+            questions: args.questions || [],
             createdAt: new Date().toISOString()
           });
           quizGenerated = true;
           navigate(`/quizzes/${quizDocRef.id}`);
+        } catch (err) {
+          console.error("Failed to parse AI JSON response", err);
         }
       }
 

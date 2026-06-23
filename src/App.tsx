@@ -17,6 +17,7 @@ import { QuizRunner } from './pages/QuizRunner';
 import { History } from './pages/History';
 import { Settings } from './pages/Settings';
 import { RecycleBin } from './pages/RecycleBin';
+import { DeleteAccount } from './pages/DeleteAccount';
 import { Analytics } from '@vercel/analytics/react';
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -34,6 +35,7 @@ export default function App() {
           <BrowserRouter>
             <Routes>
               <Route path="/login" element={<Login />} />
+              <Route path="/delete-account" element={<DeleteAccount />} />
               <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
                 <Route index element={<Dashboard />} />
                 <Route path="tutor" element={<Tutor />} />

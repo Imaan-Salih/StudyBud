@@ -2,16 +2,19 @@ import "dotenv/config";
 import express from "express";
 import path from "path";
 import { createServer as createViteServer } from "vite";
-import * as admin from "firebase-admin";
+import { initializeApp, getApps, cert } from 'firebase-admin/app';
+import { getAuth } from 'firebase-admin/auth';
 
 // Initialize Firebase Admin
 try {
   if (process.env.FIREBASE_ADMIN_CREDENTIALS) {
     const serviceAccount = JSON.parse(process.env.FIREBASE_ADMIN_CREDENTIALS);
-    admin.initializeApp({
-      credential: admin.credential.cert(serviceAccount)
-    });
-    console.log("Firebase Admin initialized successfully.");
+    if (!getApps().length) {
+      initializeApp({
+        credential: cert(serviceAccount)
+      });
+      console.log("Firebase Admin initialized successfully.");
+    }
   } else {
     console.warn("FIREBASE_ADMIN_CREDENTIALS environment variable not found. Admin features will be disabled.");
   }
@@ -33,7 +36,7 @@ async function startServer() {
 
   app.post("/api/reset-password", async (req, res) => {
     try {
-      if (!admin.apps.length) {
+      if (!getApps().length) {
         return res.status(500).json({ error: "Firebase Admin is not configured. Please add FIREBASE_ADMIN_CREDENTIALS to the environment." });
       }
 
@@ -45,7 +48,7 @@ async function startServer() {
       // Find user by email
       let userRecord;
       try {
-        userRecord = await admin.auth().getUserByEmail(email);
+        userRecord = await getAuth().getUserByEmail(email);
       } catch (err: any) {
         if (err.code === 'auth/user-not-found') {
           return res.status(404).json({ error: "User not found." });
@@ -54,7 +57,7 @@ async function startServer() {
       }
 
       // Update their password
-      await admin.auth().updateUser(userRecord.uid, {
+      await getAuth().updateUser(userRecord.uid, {
         password: newPassword
       });
 

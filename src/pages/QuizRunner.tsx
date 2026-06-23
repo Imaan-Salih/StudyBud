@@ -149,26 +149,49 @@ Do NOT repeat the following questions:
 - ${existingQs}`;
 
       const response = await withRetry(() => ai.models.generateContent({
-        model: 'gemini-2.5-flash',
+        model: 'gemini-2.5-flash-8b',
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
         config: {
-          systemInstruction: `You are an expert educational AI. Your single task is to generate a relevant, highly-accurate multiple-choice quiz with exactly ${quiz.questions.length} questions. YOU MUST output the quiz using the generateQuiz tool. If you do not use the tool, the request will fail. Important: When generating math or science questions, ALWAYS format mathematical equations, variables, and expressions using standard LaTeX syntax. Use \`$...\$\` for inline math and \`$$...$$\` for block equations.`,
-          tools: [{ functionDeclarations: [generateQuizTool] }]
+          systemInstruction: `You are an expert educational AI. Your single task is to generate a relevant, highly-accurate multiple-choice quiz with exactly ${quiz.questions.length} questions. Important: When generating math or science questions, ALWAYS format mathematical equations, variables, and expressions using standard LaTeX syntax. Use \`$...\$\` for inline math and \`$$...$$\` for block equations.`,
+          responseMimeType: 'application/json',
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              title: { type: Type.STRING },
+              questions: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    question: { type: Type.STRING },
+                    options: { type: Type.ARRAY, items: { type: Type.STRING } },
+                    answer: { type: Type.STRING },
+                    explanation: { type: Type.STRING }
+                  },
+                  required: ['question', 'options', 'answer', 'explanation']
+                }
+              }
+            },
+            required: ['title', 'questions']
+          }
         }
       }));
 
-      if (response.functionCalls && response.functionCalls.length > 0) {
-        const call = response.functionCalls.find(c => c.name === 'generateQuiz');
-        if (call) {
-          const args = call.args as any;
+      if (response.text) {
+        try {
+          const parsedRes = JSON.parse(response.text);
+          const args = parsedRes;
           const quizDocRef = await addDoc(collection(db, 'quizzes'), {
             userId: user.uid,
             sessionId: quiz.sessionId || "direct_upload",
-            title: args.title,
-            questions: args.questions,
+            title: args.title || 'Generated Quiz',
+            questions: args.questions || [],
             createdAt: new Date().toISOString()
           });
           navigate(`/quizzes/${quizDocRef.id}`);
+        } catch (err) {
+          console.error("Failed to parse new quiz JSON", err);
+          throw new Error("Invalid format received from AI.");
         }
       }
     } catch (error: any) {

@@ -3,8 +3,6 @@ import { useAuth } from '../contexts/AuthContext';
 import { Navigate } from 'react-router-dom';
 import { BrainCircuit, Loader2, Mail, Lock, User as UserIcon, Eye, EyeOff, KeyRound } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { sendPasswordResetEmail } from 'firebase/auth';
-import { auth } from '../firebase';
 import emailjs from '@emailjs/browser';
 
 // ==========================================
@@ -154,20 +152,26 @@ export const Login = () => {
         body: JSON.stringify({ email, newPassword }),
       });
 
-      const data = await response.json();
+      const contentType = response.headers.get("content-type");
+      if (contentType && contentType.indexOf("application/json") !== -1) {
+        const data = await response.json();
 
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to update password');
+        if (!response.ok) {
+          throw new Error(data.error || 'Failed to update password');
+        }
+
+        setMessage('Password updated successfully! You can now log in with your new password.');
+        setResetStep('email');
+        setTimeout(() => {
+          setIsForgotPassword(false);
+        }, 3000);
+      } else {
+        // Safe fallback if Vercel serves an HTML page instead of the API
+        throw new Error('API route not found on Vercel. Ensure Vercel is serving the /api folder correctly.');
       }
-
-      setMessage('Password updated successfully! You can now log in with your new password.');
-      setResetStep('email');
-      setTimeout(() => {
-        setIsForgotPassword(false);
-      }, 3000);
     } catch (err: any) {
       console.error(err);
-      setError(err.message || 'Error communicating with the backend server. Did you set FIREBASE_ADMIN_CREDENTIALS in your environment secrets?');
+      setError(err.message || 'Error communicating with the backend server.');
     } finally {
       setIsSigningIn(false);
     }
@@ -195,7 +199,7 @@ export const Login = () => {
             disabled={isSigningIn}
             className="w-full flex items-center justify-center py-3 px-4 border border-transparent rounded-xl shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            {isSigningIn ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Send OTP via EmailJS'}
+            {isSigningIn ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Send OTP'}
           </button>
         </form>
       );

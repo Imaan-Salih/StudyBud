@@ -312,8 +312,8 @@ If the user asks you to create a quiz, use the generateQuiz tool to create it fo
       
       setSelectedFile(null);
 
-      const response = await withRetry(() => ai.models.generateContent({
-        model: 'gemini-2.5-flash',
+      const responseStream = await ai.models.generateContentStream({
+        model: 'gemini-2.5-flash-8b',
         contents: [
           ...historyParts,
           { role: 'user', parts: currentParts }
@@ -322,22 +322,50 @@ If the user asks you to create a quiz, use the generateQuiz tool to create it fo
           systemInstruction,
           tools: [{ functionDeclarations: [generateQuizTool] }]
         }
-      }));
+      });
 
-      let aiResponse = response.text || '';
+      let aiResponse = '';
+      let functionCallTriggered = false;
+      const aiMessageObj = {
+        role: 'model',
+        content: '',
+        timestamp: new Date().toISOString()
+      };
       
-      if (response.functionCalls && response.functionCalls.length > 0) {
-        const call = response.functionCalls[0];
-        if (call.name === 'generateQuiz') {
-          const args = call.args as any;
-          await addDoc(collection(db, 'quizzes'), {
-            userId: user.uid,
-            sessionId: sid,
-            title: args.title,
-            questions: args.questions,
-            createdAt: new Date().toISOString()
+      // Temporary state for the streaming message
+      const tempMessages = [...newMessages, aiMessageObj];
+      setMessages([...tempMessages]);
+
+      for await (const chunk of responseStream) {
+        if (chunk.functionCalls && chunk.functionCalls.length > 0) {
+          const call = chunk.functionCalls[0];
+          if (call.name === 'generateQuiz') {
+            const args = call.args as any;
+            await addDoc(collection(db, 'quizzes'), {
+              userId: user.uid,
+              sessionId: sid,
+              title: args.title || 'Generated Quiz',
+              questions: args.questions || [],
+              createdAt: new Date().toISOString()
+            });
+            aiResponse = "I've generated a quiz for you! You can find it in the Quizzes tab.";
+            functionCallTriggered = true;
+          }
+          break;
+        }
+        
+        if (chunk.text && !functionCallTriggered) {
+          aiResponse += chunk.text;
+          
+          // Update the last message with the new chunk
+          setMessages(prev => {
+            const updated = [...prev];
+            updated[updated.length - 1] = {
+              ...updated[updated.length - 1],
+              content: aiResponse
+            };
+            return updated;
           });
-          aiResponse = "I've generated a quiz for you! You can find it in the Quizzes tab.";
         }
       }
 
@@ -345,13 +373,14 @@ If the user asks you to create a quiz, use the generateQuiz tool to create it fo
         aiResponse = "I'm sorry, I couldn't process that.";
       }
       
-      const aiMessageObj = {
+      // Final update
+      const finalAiMessageObj = {
         role: 'model',
         content: aiResponse,
         timestamp: new Date().toISOString()
       };
 
-      const finalMessages = [...newMessages, aiMessageObj];
+      const finalMessages = [...newMessages, finalAiMessageObj];
       setMessages(finalMessages);
 
       await updateDoc(doc(db, 'studySessions', sid), {
