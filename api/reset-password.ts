@@ -10,8 +10,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     if (!getApps().length) {
       if (process.env.FIREBASE_ADMIN_CREDENTIALS) {
-        const serviceAccount = JSON.parse(process.env.FIREBASE_ADMIN_CREDENTIALS);
-        initializeApp({ credential: cert(serviceAccount) });
+        let serviceAccount;
+        try {
+          serviceAccount = JSON.parse(process.env.FIREBASE_ADMIN_CREDENTIALS);
+        } catch (e) {
+          try {
+            const decoded = Buffer.from(process.env.FIREBASE_ADMIN_CREDENTIALS, 'base64').toString('utf8');
+            serviceAccount = JSON.parse(decoded);
+          } catch (e2) {
+            return res.status(500).json({ error: "Invalid FIREBASE_ADMIN_CREDENTIALS format. Must be valid JSON or a base64 encoded JSON string." });
+          }
+        }
+        try {
+           initializeApp({ credential: cert(serviceAccount) });
+        } catch (e: any) {
+           return res.status(500).json({ error: `Firebase Admin initialization failed: ${e.message}` });
+        }
       } else {
         return res.status(500).json({ error: "Firebase Admin is not configured. Please add FIREBASE_ADMIN_CREDENTIALS to the environment." });
       }

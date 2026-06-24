@@ -118,11 +118,11 @@ export const Login = () => {
         EMAILJS_PUBLIC_KEY
       );
       setResetStep('otp');
-      setMessage('An OTP has been sent to your email via EmailJS.');
+      setMessage('An OTP has been sent to your email address.');
       
     } catch (err: any) {
       console.error('EmailJS Error:', err);
-      setError('Failed to send OTP via EmailJS. Please check your credentials or try again.');
+      setError('Failed to send OTP. Please try again later.');
     } finally {
       setIsSigningIn(false);
     }
