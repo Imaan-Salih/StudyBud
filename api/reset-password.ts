@@ -1,0 +1,43 @@
+import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { initializeApp, getApps, cert } from 'firebase-admin/app';
+import { getAuth } from 'firebase-admin/auth';
+
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  try {
+    if (!getApps().length) {
+      if (process.env.FIREBASE_ADMIN_CREDENTIALS) {
+        const serviceAccount = JSON.parse(process.env.FIREBASE_ADMIN_CREDENTIALS);
+        initializeApp({ credential: cert(serviceAccount) });
+      } else {
+        return res.status(500).json({ error: "Firebase Admin is not configured. Please add FIREBASE_ADMIN_CREDENTIALS to the environment." });
+      }
+    }
+
+    const { email, newPassword } = req.body;
+    if (!email || !newPassword) {
+      return res.status(400).json({ error: "Email and new password are required." });
+    }
+
+    let userRecord;
+    try {
+      userRecord = await getAuth().getUserByEmail(email);
+    } catch (err: any) {
+      if (err.code === 'auth/user-not-found') {
+        return res.status(404).json({ error: "User not found." });
+      }
+      throw err;
+    }
+
+    await getAuth().updateUser(userRecord.uid, { password: newPassword });
+
+    return res.json({ success: true, message: "Password updated successfully." });
+
+  } catch (error: any) {
+    console.error("Error updating password:", error);
+    return res.status(500).json({ error: error.message || "Failed to update password." });
+  }
+}
