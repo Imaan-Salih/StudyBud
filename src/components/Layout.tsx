@@ -1,10 +1,10 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { NavLink, useNavigate, useLocation, useOutlet } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { BookOpen, MessageSquare, BrainCircuit, LogOut, Clock, Settings as SettingsIcon } from 'lucide-react';
+import { BookOpen, MessageSquare, BrainCircuit, LogOut, Clock, Settings as SettingsIcon, WifiOff } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import { AnimatePresence } from 'motion/react';
+import { AnimatePresence, motion } from 'motion/react';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -15,6 +15,20 @@ export const Layout = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const outlet = useOutlet();
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   const handleLogout = async () => {
     await logout();
@@ -87,6 +101,17 @@ export const Layout = () => {
 
       {/* Main Content */}
       <main className="flex-1 flex flex-col overflow-hidden pb-[calc(4rem+env(safe-area-inset-bottom))] pt-[env(safe-area-inset-top)] md:pb-0 relative">
+        {!isOnline && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="bg-red-500 text-white px-4 py-2 flex items-center justify-center gap-2 z-50 shadow-md"
+          >
+            <WifiOff className="w-5 h-5" />
+            <span className="font-medium text-sm">You are offline. Please check your connection to avoid losing progress.</span>
+          </motion.div>
+        )}
         <AnimatePresence mode="wait">
           {outlet ? React.cloneElement(outlet as React.ReactElement, { key: location.pathname }) : null}
         </AnimatePresence>

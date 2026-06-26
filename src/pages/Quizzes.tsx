@@ -128,6 +128,13 @@ export const Quizzes = () => {
   const generateQuiz = async () => {
     if (!pendingFile || !user) return;
     
+    if (!navigator.onLine) {
+      alert("You are currently offline. Please check your network connection and try again.");
+      setShowConfigModal(false);
+      setPendingFile(null);
+      return;
+    }
+    
     const file = pendingFile;
     setShowConfigModal(false);
     setIsGenerating(true);
