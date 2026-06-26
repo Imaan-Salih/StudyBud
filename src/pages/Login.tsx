@@ -132,7 +132,7 @@ export const Login = () => {
         EMAILJS_PUBLIC_KEY
       );
       setResetStep('otp');
-      setMessage('An OTP has been sent to your email address.');
+      setMessage('The code has been sent to your email. Check your inbox or spam.');
       setResendTimer(60);
       
     } catch (err: any) {
