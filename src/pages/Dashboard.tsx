@@ -3,13 +3,17 @@ import { useAuth } from '../contexts/AuthContext';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { Link } from 'react-router-dom';
-import { MessageSquare, BrainCircuit, ArrowRight, Clock } from 'lucide-react';
-import { motion } from 'motion/react';
+import { MessageSquare, BrainCircuit, ArrowRight, Clock, Loader2, GraduationCap, X, Sparkles } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import { Modal } from '../components/Modal';
 
 export const Dashboard = () => {
   const { user } = useAuth();
   const [recentSessions, setRecentSessions] = useState<any[]>([]);
   const [recentQuizzes, setRecentQuizzes] = useState<any[]>([]);
+  const [loadingSessions, setLoadingSessions] = useState(true);
+  const [loadingQuizzes, setLoadingQuizzes] = useState(true);
+  const [showTutorial, setShowTutorial] = useState(false);
 
   const getGreeting = () => {
     const hour = new Date().getHours();
@@ -21,6 +25,11 @@ export const Dashboard = () => {
   useEffect(() => {
     if (!user) return;
 
+    const hasSeenTutorial = localStorage.getItem(`tutorial_seen_${user.uid}`);
+    if (!hasSeenTutorial) {
+      setShowTutorial(true);
+    }
+
     const sessionsQuery = query(
       collection(db, 'studySessions'),
       where('userId', '==', user.uid)
@@ -31,8 +40,10 @@ export const Dashboard = () => {
         .map(doc => ({ id: doc.id, ...doc.data() }));
       sessions.sort((a: any, b: any) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
       setRecentSessions(sessions.slice(0, 3));
+      setLoadingSessions(false);
     }, (error) => {
       handleFirestoreError(error, OperationType.LIST, 'studySessions');
+      setLoadingSessions(false);
     });
 
     const quizzesQuery = query(
@@ -45,8 +56,10 @@ export const Dashboard = () => {
         .map(doc => ({ id: doc.id, ...doc.data() }));
       quizzesList.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
       setRecentQuizzes(quizzesList.slice(0, 3));
+      setLoadingQuizzes(false);
     }, (error) => {
       handleFirestoreError(error, OperationType.LIST, 'quizzes');
+      setLoadingQuizzes(false);
     });
 
     return () => {
@@ -54,6 +67,13 @@ export const Dashboard = () => {
       unsubscribeQuizzes();
     };
   }, [user]);
+
+  const handleCloseTutorial = () => {
+    if (user) {
+      localStorage.setItem(`tutorial_seen_${user.uid}`, 'true');
+    }
+    setShowTutorial(false);
+  };
 
   return (
     <motion.div 
@@ -105,7 +125,12 @@ export const Dashboard = () => {
               </Link>
             </div>
             <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden transition-colors">
-              {recentSessions.length === 0 ? (
+              {loadingSessions ? (
+                <div className="p-8 text-center text-slate-500 dark:text-slate-400 flex flex-col items-center justify-center">
+                  <Loader2 className="w-8 h-8 animate-spin text-indigo-500 mb-3" />
+                  <p>Loading recent sessions...</p>
+                </div>
+              ) : recentSessions.length === 0 ? (
                 <div className="p-8 text-center text-slate-500 dark:text-slate-400">
                   <MessageSquare className="w-12 h-12 mx-auto mb-3 text-slate-300 dark:text-slate-600" />
                   <p>No recent study sessions.</p>
@@ -142,7 +167,12 @@ export const Dashboard = () => {
               </Link>
             </div>
             <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden transition-colors">
-              {recentQuizzes.length === 0 ? (
+              {loadingQuizzes ? (
+                <div className="p-8 text-center text-slate-500 dark:text-slate-400 flex flex-col items-center justify-center">
+                  <Loader2 className="w-8 h-8 animate-spin text-emerald-500 mb-3" />
+                  <p>Loading recent quizzes...</p>
+                </div>
+              ) : recentQuizzes.length === 0 ? (
                 <div className="p-8 text-center text-slate-500 dark:text-slate-400">
                   <BrainCircuit className="w-12 h-12 mx-auto mb-3 text-slate-300 dark:text-slate-600" />
                   <p>No generated quizzes yet.</p>
@@ -171,6 +201,57 @@ export const Dashboard = () => {
         </div>
 
       </div>
+
+      <Modal isOpen={showTutorial} onClose={handleCloseTutorial} title="Welcome to StudyBud! 🎉">
+        <div className="p-6">
+          <p className="text-slate-600 dark:text-slate-300 mb-6 text-lg">
+            We're excited to help you supercharge your learning journey. Here's a quick tour of what you can do:
+          </p>
+          
+          <div className="space-y-6">
+            <div className="flex gap-4">
+              <div className="bg-indigo-100 dark:bg-indigo-900/30 p-3 rounded-2xl h-fit shrink-0">
+                <MessageSquare className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-slate-900 dark:text-white text-lg">Tutor Sessions</h3>
+                <p className="text-slate-500 dark:text-slate-400">Engage in Socratic dialogues with your AI tutor. Upload materials and learn through guided discovery.</p>
+              </div>
+            </div>
+
+            <div className="flex gap-4">
+              <div className="bg-emerald-100 dark:bg-emerald-900/30 p-3 rounded-2xl h-fit shrink-0">
+                <BrainCircuit className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-slate-900 dark:text-white text-lg">Practice Quizzes</h3>
+                <p className="text-slate-500 dark:text-slate-400">Generate multiple-choice quizzes from your study materials to test your knowledge.</p>
+              </div>
+            </div>
+
+            <div className="flex gap-4">
+              <div className="bg-amber-100 dark:bg-amber-900/30 p-3 rounded-2xl h-fit shrink-0">
+                <Clock className="w-6 h-6 text-amber-600 dark:text-amber-400" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-slate-900 dark:text-white text-lg">Study History</h3>
+                <p className="text-slate-500 dark:text-slate-400">Review your past sessions and quizzes to track your progress over time.</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-8 pt-6 border-t border-slate-200 dark:border-slate-700 flex justify-end">
+            <button
+              onClick={handleCloseTutorial}
+              className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-medium transition-colors flex items-center gap-2"
+            >
+              <GraduationCap className="w-5 h-5" />
+              Let's Start Learning!
+            </button>
+          </div>
+        </div>
+      </Modal>
+
     </motion.div>
   );
 };

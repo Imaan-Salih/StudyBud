@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { Navigate } from 'react-router-dom';
 import { BrainCircuit, Loader2, Mail, Lock, User as UserIcon, Eye, EyeOff, KeyRound } from 'lucide-react';
@@ -32,6 +32,17 @@ export const Login = () => {
   const [generatedOtp, setGeneratedOtp] = useState('');
   const [enteredOtp, setEnteredOtp] = useState('');
   const [newPassword, setNewPassword] = useState('');
+  const [resendTimer, setResendTimer] = useState(0);
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (resendTimer > 0) {
+      interval = setInterval(() => {
+        setResendTimer((prev) => prev - 1);
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [resendTimer]);
 
   if (user) {
     return <Navigate to="/" />;
@@ -77,6 +88,9 @@ export const Login = () => {
         setError('Password should be at least 6 characters.');
       } else if (err.code === 'auth/operation-not-allowed') {
         setError('Email/Password sign-in is not enabled. Please enable it in the Firebase Console under Authentication > Sign-in method.');
+      } else if (err.code === 'auth/network-request-failed') {
+        console.error('Email auth error:', err);
+        setError('Network error. If you are using the AI Studio preview, please open the app in a new tab (using the button in the top right), as iframes can block authentication requests.');
       } else {
         console.error('Email auth error:', err);
         setError('Failed to authenticate. Please try again.');
@@ -119,6 +133,7 @@ export const Login = () => {
       );
       setResetStep('otp');
       setMessage('An OTP has been sent to your email address.');
+      setResendTimer(60);
       
     } catch (err: any) {
       console.error('EmailJS Error:', err);
@@ -144,6 +159,12 @@ export const Login = () => {
     setIsSigningIn(true);
     setError(null);
     setMessage(null);
+
+    if (newPassword.length < 6) {
+      setError('The password must be a string with at least 6 characters.');
+      setIsSigningIn(false);
+      return;
+    }
 
     try {
       const response = await fetch('/api/reset-password', {
@@ -228,6 +249,23 @@ export const Login = () => {
           >
             Verify OTP
           </button>
+
+          <div className="text-center mt-2">
+            <button
+              type="button"
+              onClick={handleSendEmailJSOtp}
+              disabled={resendTimer > 0 || isSigningIn}
+              className={`text-sm font-medium transition-colors ${
+                resendTimer > 0 
+                  ? 'text-slate-400 cursor-not-allowed' 
+                  : 'text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 dark:hover:text-indigo-300 bg-indigo-50 dark:bg-indigo-900/30 px-4 py-2 rounded-lg ring-1 ring-indigo-500/30'
+              }`}
+            >
+              {resendTimer > 0 
+                ? `Resend code in ${resendTimer}s` 
+                : 'Resend code'}
+            </button>
+          </div>
         </form>
       );
     }

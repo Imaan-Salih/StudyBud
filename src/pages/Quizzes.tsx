@@ -58,6 +58,7 @@ export const Quizzes = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [quizzes, setQuizzes] = useState<any[]>([]);
+  const [loadingQuizzes, setLoadingQuizzes] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
@@ -89,8 +90,10 @@ export const Quizzes = () => {
         .map(doc => ({ id: doc.id, ...doc.data() }));
       quizzesList.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
       setQuizzes(quizzesList);
+      setLoadingQuizzes(false);
     }, (error) => {
       handleFirestoreError(error, OperationType.LIST, 'quizzes');
+      setLoadingQuizzes(false);
     });
 
     return () => unsubscribe();
@@ -168,7 +171,7 @@ export const Quizzes = () => {
       currentParts.push({ text: `Please thoroughly analyze the content of this document and generate a structured multiple-choice quiz with EXACTLY ${questionCount} questions based on the key learning concepts within it.` });
 
       const response = await withRetry(() => ai.models.generateContent({
-        model: 'gemini-2.5-flash-8b',
+        model: 'gemini-3.5-flash',
         contents: [
           { role: 'user', parts: currentParts }
         ],
@@ -306,7 +309,12 @@ export const Quizzes = () => {
           </div>
         </header>
 
-        {quizzes.length === 0 ? (
+        {loadingQuizzes ? (
+          <div className="flex flex-col items-center justify-center p-20">
+            <Loader2 className="w-10 h-10 animate-spin text-emerald-500 mb-4" />
+            <p className="text-slate-500 dark:text-slate-400 font-medium">Loading your quizzes...</p>
+          </div>
+        ) : quizzes.length === 0 ? (
           <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-12 text-center max-w-lg mx-auto shadow-sm transition-colors">
             <div className="w-20 h-20 bg-emerald-50 dark:bg-emerald-900/30 rounded-full flex items-center justify-center mx-auto mb-6">
               <FileText className="w-10 h-10 text-emerald-500" />

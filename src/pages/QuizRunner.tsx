@@ -149,7 +149,7 @@ Do NOT repeat the following questions:
 - ${existingQs}`;
 
       const response = await withRetry(() => ai.models.generateContent({
-        model: 'gemini-2.5-flash-8b',
+        model: 'gemini-3.5-flash',
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
         config: {
           systemInstruction: `You are an expert educational AI. Your single task is to generate a relevant, highly-accurate multiple-choice quiz with exactly ${quiz.questions.length} questions. Important: When generating math or science questions, ALWAYS format mathematical equations, variables, and expressions using standard LaTeX syntax. Use \`$...\$\` for inline math and \`$$...$$\` for block equations.`,

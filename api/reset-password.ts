@@ -36,6 +36,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(400).json({ error: "Email and new password are required." });
     }
 
+    if (typeof newPassword !== 'string' || newPassword.length < 6) {
+      return res.status(400).json({ error: "The password must be a string with at least 6 characters." });
+    }
+
     let userRecord;
     try {
       userRecord = await getAuth().getUserByEmail(email);

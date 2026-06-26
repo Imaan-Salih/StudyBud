@@ -313,7 +313,7 @@ If the user asks you to create a quiz, use the generateQuiz tool to create it fo
       setSelectedFile(null);
 
       const responseStream = await ai.models.generateContentStream({
-        model: 'gemini-2.5-flash-8b',
+        model: 'gemini-3.5-flash',
         contents: [
           ...historyParts,
           { role: 'user', parts: currentParts }

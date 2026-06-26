@@ -204,10 +204,11 @@ export const History = () => {
                   <div className="flex items-center gap-2">
                     <button 
                       onClick={(e) => handleDelete(e, item.id, item.type)}
-                      className={`p-2 rounded-xl transition-colors ${deletingId === item.id ? 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400' : 'text-slate-400 dark:text-slate-500 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600 dark:hover:text-red-400'}`}
+                      className={`p-2 rounded-xl transition-all duration-200 flex items-center gap-2 ${deletingId === item.id ? 'bg-red-500 text-white hover:bg-red-600 dark:bg-red-600 dark:hover:bg-red-700 px-4 shadow-sm ring-2 ring-red-500/30' : 'text-slate-400 dark:text-slate-500 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600 dark:hover:text-red-400'}`}
                       title={deletingId === item.id ? "Click again to confirm" : "Delete"}
                     >
                       <Trash2 className="w-5 h-5" />
+                      {deletingId === item.id && <span className="text-sm font-medium whitespace-nowrap">Are you sure you want to delete?</span>}
                     </button>
                     <div className="hidden sm:flex items-center justify-center w-10 h-10 rounded-full bg-slate-50 dark:bg-slate-900/50 text-slate-400 dark:text-slate-500 group-hover:bg-indigo-50 dark:group-hover:bg-indigo-900/30 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
                       <ArrowRight className="w-5 h-5" />
