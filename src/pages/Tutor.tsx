@@ -17,9 +17,12 @@ import { Modal } from '../components/Modal';
 import { withRetry } from '../utils/retryGemini';
 import { preprocessLaTeX } from '../utils/latex';
 
-const ai = new GoogleGenAI({ 
-  apiKey: process.env.GEMINI_API_KEY || (import.meta as any).env.VITE_GEMINI_API_KEY || 'missing_key' 
-});
+const getAIClient = () => {
+  const customKey = localStorage.getItem('custom_gemini_api_key');
+  return new GoogleGenAI({ 
+    apiKey: customKey || process.env.GEMINI_API_KEY || (import.meta as any).env.VITE_GEMINI_API_KEY || 'missing_key' 
+  });
+};
 
 const generateQuizTool: FunctionDeclaration = {
   name: 'generateQuiz',
@@ -149,7 +152,7 @@ Your goal is to help the student learn effectively. You should directly answer t
 After providing a clear answer, you can optionally ask a brief follow-up question to check their understanding or encourage deeper thinking.
 If the user uploads an image, PDF, or text document, analyze it thoroughly and help them study the material. Explain key concepts found in the document.
 When explaining math or science concepts, ALWAYS format mathematical equations, variables, and expressions using standard LaTeX syntax. Use $...$ for inline math and $$...$$ for block equations. Do not escape the dollar signs.
-If the user asks you to create a quiz, use the generateQuiz tool to create it for them, and then tell them the quiz has been generated and they can find it in the Quizzes tab. Ensure you generate the exact number of questions the user requests. If they don't specify, default to 5 questions.`;
+If the user asks you to create a quiz, use the generateQuiz tool to create it for them, and then tell them the quiz has been generated and they can find it in the Quizzes tab. Ensure you generate the exact number of questions the user requests. If they don't specify, default to 5 questions. Important for the tool: Ensure the correct answer is completely randomized among the available options (A, B, C, D) for each question so there is no predictable pattern.`;
 
   useEffect(() => {
     if (!user || !currentSessionId) return;
@@ -254,7 +257,9 @@ If the user asks you to create a quiz, use the generateQuiz tool to create it fo
       if (!sid) {
         const sessionData = {
           userId: user.uid,
-          title: userMessageContent.substring(0, 50) || 'New Study Session',
+          title: userMessageContent 
+            ? (userMessageContent.length > 50 ? userMessageContent.substring(0, 47) + '...' : userMessageContent)
+            : (selectedFile ? `Session: ${selectedFile.name}` : 'New Study Session'),
           createdAt: currentTimestamp,
           updatedAt: currentTimestamp,
           messages: newMessages
@@ -272,7 +277,7 @@ If the user asks you to create a quiz, use the generateQuiz tool to create it fo
 
       const historyParts = messages.map(msg => ({
         role: msg.role === 'user' ? 'user' : 'model',
-        parts: [{ text: msg.content }]
+        parts: msg.content ? [{ text: msg.content }] : [{ text: "[Attachment]" }]
       }));
 
       const currentParts: any[] = [];
@@ -317,8 +322,8 @@ If the user asks you to create a quiz, use the generateQuiz tool to create it fo
       
       setSelectedFile(null);
 
-      const responseStream = await ai.models.generateContentStream({
-        model: 'gemini-3.5-flash',
+      const responseStream = await getAIClient().models.generateContentStream({
+        model: 'gemini-3.1-pro-preview',
         contents: [
           ...historyParts,
           { role: 'user', parts: currentParts }
@@ -331,6 +336,7 @@ If the user asks you to create a quiz, use the generateQuiz tool to create it fo
 
       let aiResponse = '';
       let functionCallTriggered = false;
+      let generatedQuizId = '';
       const aiMessageObj = {
         role: 'model',
         content: '',
@@ -346,14 +352,15 @@ If the user asks you to create a quiz, use the generateQuiz tool to create it fo
           const call = chunk.functionCalls[0];
           if (call.name === 'generateQuiz') {
             const args = call.args as any;
-            await addDoc(collection(db, 'quizzes'), {
+            const quizDocRef = await addDoc(collection(db, 'quizzes'), {
               userId: user.uid,
               sessionId: sid,
               title: args.title || 'Generated Quiz',
               questions: args.questions || [],
               createdAt: new Date().toISOString()
             });
-            aiResponse = "I've generated a quiz for you! You can find it in the Quizzes tab.";
+            generatedQuizId = quizDocRef.id;
+            aiResponse = "I've generated a quiz for you! You can click the button below to take it now, or find it in the Quizzes tab.";
             functionCallTriggered = true;
           }
           break;
@@ -379,11 +386,15 @@ If the user asks you to create a quiz, use the generateQuiz tool to create it fo
       }
       
       // Final update
-      const finalAiMessageObj = {
+      const finalAiMessageObj: any = {
         role: 'model',
         content: aiResponse,
         timestamp: new Date().toISOString()
       };
+      
+      if (generatedQuizId) {
+        finalAiMessageObj.quizId = generatedQuizId;
+      }
 
       const finalMessages = [...newMessages, finalAiMessageObj];
       setMessages(finalMessages);
@@ -399,6 +410,8 @@ If the user asks you to create a quiz, use the generateQuiz tool to create it fo
       let errorMessage = error.message || "Unknown error";
       if (errorMessage.includes("503") || errorMessage.includes("high demand") || errorMessage.includes("UNAVAILABLE")) {
         errorMessage = "The AI tutor is currently experiencing high demand. Please try again in a few moments.";
+      } else if (errorMessage.toLowerCase().includes("quota") || errorMessage.includes("429")) {
+        errorMessage = "You have exceeded your AI generation quota. Please add a custom free Gemini API key in the Settings page to continue using the app.";
       } else if (errorMessage.includes("{")) {
         try {
             const jsonPart = errorMessage.substring(errorMessage.indexOf("{"));
@@ -407,6 +420,8 @@ If the user asks you to create a quiz, use the generateQuiz tool to create it fo
                 errorMessage = parsed.error.message;
                 if (errorMessage.includes("high demand")) {
                     errorMessage = "The AI tutor is currently experiencing high demand. Please try again in a few moments.";
+                } else if (errorMessage.toLowerCase().includes("quota") || errorMessage.includes("429")) {
+                    errorMessage = "You have exceeded your AI generation quota. Please add a custom free Gemini API key in the Settings page to continue using the app.";
                 }
             }
         } catch (e) {
@@ -416,7 +431,7 @@ If the user asks you to create a quiz, use the generateQuiz tool to create it fo
       
       setModalState({
         isOpen: true,
-        title: errorMessage.includes("high demand") ? 'High Demand' : 'Error',
+        title: errorMessage.includes("quota") ? 'Quota Exceeded' : (errorMessage.includes("high demand") ? 'High Demand' : 'Error'),
         message: errorMessage
       });
       
@@ -436,7 +451,7 @@ If the user asks you to create a quiz, use the generateQuiz tool to create it fo
       {/* Header */}
       <header className="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 p-4 flex flex-col sm:flex-row sm:items-center justify-between transition-colors gap-4">
         <div>
-          <h2 className="text-lg font-bold text-slate-900 dark:text-white">Socratic AI Tutor</h2>
+          <h2 className="text-lg font-bold text-slate-900 dark:text-white">StudyBud</h2>
           <p className="text-sm text-slate-500 dark:text-slate-400">Ask questions, upload notes, or take a photo.</p>
         </div>
       </header>
@@ -480,6 +495,17 @@ If the user asks you to create a quiz, use the generateQuiz tool to create it fo
                 <div className={`prose prose-sm max-w-none dark:prose-invert ${msg.role === 'user' ? 'prose-invert' : ''}`}>
                   <ReactMarkdown remarkPlugins={[remarkMath, remarkGfm]} rehypePlugins={[rehypeKatex]}>{preprocessLaTeX(msg.content)}</ReactMarkdown>
                 </div>
+                {msg.quizId && (
+                  <div className="mt-4 mb-2">
+                    <button
+                      onClick={() => navigate(`/quizzes/${msg.quizId}`)}
+                      className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
+                    >
+                      <BrainCircuit className="w-4 h-4" />
+                      Take Quiz Now
+                    </button>
+                  </div>
+                )}
                 {msg.role === 'model' && (
                   <button 
                     onClick={() => {

@@ -14,9 +14,12 @@ import { GoogleGenAI, Type, FunctionDeclaration } from '@google/genai';
 import { withRetry } from '../utils/retryGemini';
 import { preprocessLaTeX } from '../utils/latex';
 
-const ai = new GoogleGenAI({ 
-  apiKey: process.env.GEMINI_API_KEY || (import.meta as any).env.VITE_GEMINI_API_KEY || 'missing_key' 
-});
+const getAIClient = () => {
+  const customKey = localStorage.getItem('custom_gemini_api_key');
+  return new GoogleGenAI({ 
+    apiKey: customKey || process.env.GEMINI_API_KEY || (import.meta as any).env.VITE_GEMINI_API_KEY || 'missing_key' 
+  });
+};
 
 const generateQuizTool: FunctionDeclaration = {
   name: 'generateQuiz',
@@ -53,6 +56,7 @@ export const QuizRunner = () => {
   const [userAnswers, setUserAnswers] = useState<Record<number, string>>({});
   const [isFinished, setIsFinished] = useState(false);
   const [isGeneratingNew, setIsGeneratingNew] = useState(false);
+  const [generationProgress, setGenerationProgress] = useState(0);
   const [resultSaved, setResultSaved] = useState(false);
 
   useEffect(() => {
@@ -74,6 +78,25 @@ export const QuizRunner = () => {
 
     fetchQuiz();
   }, [user, quizId, navigate]);
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (isGeneratingNew) {
+      setGenerationProgress(0);
+      interval = setInterval(() => {
+        setGenerationProgress((prev) => {
+          if (prev < 30) return prev + Math.random() * 15;
+          if (prev < 70) return prev + Math.random() * 8;
+          if (prev < 90) return prev + Math.random() * 3;
+          if (prev < 98) return prev + Math.random() * 0.5;
+          return prev;
+        });
+      }, 500);
+    } else {
+      setGenerationProgress(0);
+    }
+    return () => clearInterval(interval);
+  }, [isGeneratingNew]);
 
   // Reset state when quiz changes (e.g. from new generation)
   useEffect(() => {
@@ -148,11 +171,11 @@ export const QuizRunner = () => {
 Do NOT repeat the following questions:
 - ${existingQs}`;
 
-      const response = await withRetry(() => ai.models.generateContent({
-        model: 'gemini-3.5-flash',
+      const response = await withRetry(() => getAIClient().models.generateContent({
+        model: 'gemini-3.1-pro-preview',
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
         config: {
-          systemInstruction: `You are an expert educational AI. Your single task is to generate a relevant, highly-accurate multiple-choice quiz with exactly ${quiz.questions.length} questions. Important: When generating math or science questions, ALWAYS format mathematical equations, variables, and expressions using standard LaTeX syntax. Use \`$...\$\` for inline math and \`$$...$$\` for block equations.`,
+          systemInstruction: `You are an expert educational AI. Your single task is to generate a relevant, highly-accurate multiple-choice quiz with exactly ${quiz.questions.length} questions. Important: Ensure the correct answer is completely randomized among the available options (A, B, C, D) for each question so there is no predictable pattern (like mostly A, or A-B-C-D). When generating math or science questions, ALWAYS format mathematical equations, variables, and expressions using standard LaTeX syntax. Use \`$...\$\` for inline math and \`$$...$$\` for block equations.`,
           responseMimeType: 'application/json',
           responseSchema: {
             type: Type.OBJECT,
@@ -199,6 +222,8 @@ Do NOT repeat the following questions:
       let errorMessage = error.message || "Unknown error";
       if (errorMessage.includes("503") || errorMessage.includes("high demand") || errorMessage.includes("UNAVAILABLE")) {
         errorMessage = "The AI is currently experiencing high demand. Please try again in a few moments.";
+      } else if (errorMessage.toLowerCase().includes("quota") || errorMessage.includes("429")) {
+        errorMessage = "You have exceeded your AI generation quota. Please add a custom free Gemini API key in the Settings page to continue using the app.";
       } else if (errorMessage.includes("{")) {
         try {
             const jsonPart = errorMessage.substring(errorMessage.indexOf("{"));
@@ -207,6 +232,8 @@ Do NOT repeat the following questions:
                 errorMessage = parsed.error.message;
                 if (errorMessage.includes("high demand")) {
                     errorMessage = "The AI is currently experiencing high demand. Please try again in a few moments.";
+                } else if (errorMessage.toLowerCase().includes("quota") || errorMessage.includes("429")) {
+                    errorMessage = "You have exceeded your AI generation quota. Please add a custom free Gemini API key in the Settings page to continue using the app.";
                 }
             }
         } catch (e) {
@@ -256,8 +283,17 @@ Do NOT repeat the following questions:
                 className="w-full sm:w-auto flex items-center justify-center gap-2 bg-indigo-600 text-white px-6 py-3 rounded-xl font-medium hover:bg-indigo-700 transition-colors disabled:opacity-70"
                 disabled={isGeneratingNew}
               >
-                {isGeneratingNew ? <Loader2 className="w-5 h-5 animate-spin" /> : <Sparkles className="w-5 h-5" />}
-                New Questions
+                {isGeneratingNew ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    Generating {Math.round(generationProgress)}%...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-5 h-5" />
+                    New Questions
+                  </>
+                )}
               </button>
               <button 
                 onClick={() => navigate('/quizzes')} 

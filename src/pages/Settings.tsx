@@ -22,6 +22,17 @@ export const Settings = () => {
   
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [deleteConfirmation, setDeleteConfirmation] = useState('');
+  const [customApiKey, setCustomApiKey] = useState(localStorage.getItem('custom_gemini_api_key') || '');
+
+  const handleSaveApiKey = () => {
+    if (customApiKey.trim()) {
+      localStorage.setItem('custom_gemini_api_key', customApiKey.trim());
+      setMessage({ type: 'success', text: 'Custom API Key saved successfully! It will be used for AI features.' });
+    } else {
+      localStorage.removeItem('custom_gemini_api_key');
+      setMessage({ type: 'success', text: 'Custom API Key removed. Using default quota.' });
+    }
+  };
 
   const handleUpdateEmail = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -126,6 +137,41 @@ export const Settings = () => {
               >
                 {theme === 'dark' ? <Sun className="w-6 h-6" /> : <Moon className="w-6 h-6" />}
               </button>
+            </div>
+          </section>
+
+          {/* API Settings */}
+          <section className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-6 shadow-sm transition-colors">
+            <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
+              <BrainCircuit className="w-6 h-6 text-indigo-500" />
+              API Settings
+            </h2>
+            <div className="mb-4">
+              <h3 className="font-medium text-slate-900 dark:text-white">Custom Gemini API Key (Optional)</h3>
+              <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 mb-4">
+                If you are running into quota limits, you can provide your own free Google Gemini API key to get unlimited access. 
+                <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="text-indigo-600 dark:text-indigo-400 hover:underline ml-1">
+                  Get a free key here.
+                </a>
+              </p>
+              <div className="flex flex-col sm:flex-row gap-3">
+                <div className="relative flex-1">
+                  <Lock className="w-5 h-5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input 
+                    type="password" 
+                    value={customApiKey}
+                    onChange={(e) => setCustomApiKey(e.target.value)}
+                    placeholder="AIzaSy..."
+                    className="w-full pl-10 pr-4 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-colors"
+                  />
+                </div>
+                <button 
+                  onClick={handleSaveApiKey}
+                  className="px-4 py-2 bg-indigo-600 text-white rounded-xl font-medium hover:bg-indigo-700 transition-colors whitespace-nowrap"
+                >
+                  Save Key
+                </button>
+              </div>
             </div>
           </section>
 

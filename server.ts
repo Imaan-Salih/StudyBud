@@ -11,6 +11,9 @@ try {
     let serviceAccount;
     try {
       serviceAccount = JSON.parse(process.env.FIREBASE_ADMIN_CREDENTIALS);
+      if (serviceAccount.private_key) {
+        serviceAccount.private_key = serviceAccount.private_key.replace(/\\n/g, '\n');
+      }
     } catch (e) {
       try {
         const decoded = Buffer.from(process.env.FIREBASE_ADMIN_CREDENTIALS, 'base64').toString('utf8');

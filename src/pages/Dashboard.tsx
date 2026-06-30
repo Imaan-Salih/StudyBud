@@ -13,7 +13,6 @@ export const Dashboard = () => {
   const [recentQuizzes, setRecentQuizzes] = useState<any[]>([]);
   const [loadingSessions, setLoadingSessions] = useState(true);
   const [loadingQuizzes, setLoadingQuizzes] = useState(true);
-  const [showTutorial, setShowTutorial] = useState(false);
 
   const getGreeting = () => {
     const hour = new Date().getHours();
@@ -24,11 +23,6 @@ export const Dashboard = () => {
 
   useEffect(() => {
     if (!user) return;
-
-    const hasSeenTutorial = localStorage.getItem(`tutorial_seen_${user.uid}`);
-    if (!hasSeenTutorial) {
-      setShowTutorial(true);
-    }
 
     const sessionsQuery = query(
       collection(db, 'studySessions'),
@@ -67,13 +61,6 @@ export const Dashboard = () => {
       unsubscribeQuizzes();
     };
   }, [user]);
-
-  const handleCloseTutorial = () => {
-    if (user) {
-      localStorage.setItem(`tutorial_seen_${user.uid}`, 'true');
-    }
-    setShowTutorial(false);
-  };
 
   return (
     <motion.div 
@@ -201,58 +188,6 @@ export const Dashboard = () => {
         </div>
 
       </div>
-
-      <Modal isOpen={showTutorial} onClose={handleCloseTutorial} title="Welcome to StudyBud! 🎉">
-        <div className="p-6">
-          <p className="text-slate-600 dark:text-slate-300 mb-6 text-lg">
-            We're excited to help you supercharge your learning journey. Here's a quick tour of what you can do:
-          </p>
-          
-          <div className="space-y-6">
-            <div className="flex gap-4">
-              <div className="bg-indigo-100 dark:bg-indigo-900/30 p-3 rounded-2xl h-fit shrink-0">
-                <MessageSquare className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
-              </div>
-              <div>
-                <h3 className="font-semibold text-slate-900 dark:text-white text-lg">Tutor Sessions</h3>
-                <p className="text-slate-500 dark:text-slate-400">Engage in Socratic dialogues with your AI tutor. Upload materials and learn through guided discovery.</p>
-              </div>
-            </div>
-
-            <div className="flex gap-4">
-              <div className="bg-emerald-100 dark:bg-emerald-900/30 p-3 rounded-2xl h-fit shrink-0">
-                <BrainCircuit className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
-              </div>
-              <div>
-                <h3 className="font-semibold text-slate-900 dark:text-white text-lg">Practice Quizzes</h3>
-                <p className="text-slate-500 dark:text-slate-400">Generate multiple-choice quizzes from your study materials to test your knowledge.</p>
-              </div>
-            </div>
-
-            <div className="flex gap-4">
-              <div className="bg-amber-100 dark:bg-amber-900/30 p-3 rounded-2xl h-fit shrink-0">
-                <Clock className="w-6 h-6 text-amber-600 dark:text-amber-400" />
-              </div>
-              <div>
-                <h3 className="font-semibold text-slate-900 dark:text-white text-lg">Study History</h3>
-                <p className="text-slate-500 dark:text-slate-400">Review your past sessions and quizzes to track your progress over time.</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-8 pt-6 border-t border-slate-200 dark:border-slate-700 flex justify-end">
-            <button
-              onClick={handleCloseTutorial}
-              className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-medium transition-colors flex items-center gap-2"
-            >
-              <GraduationCap className="w-5 h-5" />
-              Let's Start Learning!
-            </button>
-          </div>
-        </div>
-      </Modal>
-
     </motion.div>
   );
 };
-

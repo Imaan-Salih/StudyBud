@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { collection, query, where, onSnapshot, deleteDoc, doc, getDoc, setDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, deleteDoc, doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { Link } from 'react-router-dom';
-import { MessageSquare, BrainCircuit, Clock, ArrowRight, Trash2 } from 'lucide-react';
+import { MessageSquare, BrainCircuit, Clock, ArrowRight, Trash2, Edit2, Check, X } from 'lucide-react';
 import { motion } from 'motion/react';
 
 export const History = () => {
@@ -11,6 +11,47 @@ export const History = () => {
   const [historyItems, setHistoryItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameInput, setRenameInput] = useState<string>('');
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const showToast = (message: string) => {
+    setToastMessage(message);
+    setTimeout(() => setToastMessage(null), 3000);
+  };
+
+  const handleRenameStart = (e: React.MouseEvent, item: any) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setRenamingId(item.id);
+    setRenameInput(item.title);
+  };
+
+  const handleRenameSubmit = async (e: React.FormEvent, id: string, type: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!renameInput.trim()) {
+      setRenamingId(null);
+      return;
+    }
+    
+    try {
+      const collectionName = type === 'session' ? 'studySessions' : 'quizzes';
+      await updateDoc(doc(db, collectionName, id), {
+        title: renameInput.trim()
+      });
+      setRenamingId(null);
+      showToast('Renamed successfully');
+    } catch (error) {
+      console.error("Rename failed", error);
+    }
+  };
+
+  const handleRenameCancel = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setRenamingId(null);
+  };
 
   const handleDelete = async (e: React.MouseEvent, id: string, type: string) => {
     e.preventDefault(); // Prevent navigating to the item
@@ -192,16 +233,52 @@ export const History = () => {
                         <span className="truncate">{new Date(item.date).toLocaleDateString()} at {new Date(item.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                       </span>
                     </div>
-                    <h3 className="text-lg font-bold text-slate-900 dark:text-white truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
-                      {item.title}
-                    </h3>
+                    {renamingId === item.id ? (
+                      <form 
+                        className="mt-1 flex items-center gap-2"
+                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                        onSubmit={(e) => handleRenameSubmit(e, item.id, item.type)}
+                      >
+                        <input
+                          type="text"
+                          value={renameInput}
+                          onChange={(e) => setRenameInput(e.target.value)}
+                          className="flex-1 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-1 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                          autoFocus
+                          onKeyDown={(e) => {
+                            if (e.key === 'Escape') {
+                              setRenamingId(null);
+                            }
+                          }}
+                        />
+                        <button type="submit" className="p-1.5 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 rounded-lg transition-colors">
+                          <Check className="w-5 h-5" />
+                        </button>
+                        <button type="button" onClick={handleRenameCancel} className="p-1.5 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors">
+                          <X className="w-5 h-5" />
+                        </button>
+                      </form>
+                    ) : (
+                      <h3 className="text-lg font-bold text-slate-900 dark:text-white truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                        {item.title}
+                      </h3>
+                    )}
                     {item.type === 'quiz' && (
                       <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
                         {item.questions?.length || 0} questions
                       </p>
                     )}
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1 sm:gap-2">
+                    {renamingId !== item.id && (
+                      <button 
+                        onClick={(e) => handleRenameStart(e, item)}
+                        className="p-2 rounded-xl text-slate-400 dark:text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-900/20 hover:text-indigo-600 dark:hover:text-indigo-400 transition-all duration-200"
+                        title="Rename"
+                      >
+                        <Edit2 className="w-5 h-5" />
+                      </button>
+                    )}
                     <button 
                       onClick={(e) => handleDelete(e, item.id, item.type)}
                       className={`p-2 rounded-xl transition-all duration-200 flex items-center gap-2 ${deletingId === item.id ? 'bg-red-500 text-white hover:bg-red-600 dark:bg-red-600 dark:hover:bg-red-700 px-4 shadow-sm ring-2 ring-red-500/30' : 'text-slate-400 dark:text-slate-500 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600 dark:hover:text-red-400'}`}
@@ -220,6 +297,13 @@ export const History = () => {
           </div>
         )}
       </div>
+      
+      {toastMessage && (
+        <div className="fixed bottom-6 right-6 bg-emerald-600 text-white px-6 py-3 rounded-xl shadow-lg font-medium flex items-center gap-2 animate-in slide-in-from-bottom-5 fade-in duration-300">
+          <Check className="w-5 h-5" />
+          {toastMessage}
+        </div>
+      )}
     </motion.div>
   );
 };

@@ -11,9 +11,12 @@ import JSZip from 'jszip';
 import { Modal } from '../components/Modal';
 import { withRetry } from '../utils/retryGemini';
 
-const ai = new GoogleGenAI({ 
-  apiKey: process.env.GEMINI_API_KEY || (import.meta as any).env.VITE_GEMINI_API_KEY || 'missing_key' 
-});
+const getAIClient = () => {
+  const customKey = localStorage.getItem('custom_gemini_api_key');
+  return new GoogleGenAI({ 
+    apiKey: customKey || process.env.GEMINI_API_KEY || (import.meta as any).env.VITE_GEMINI_API_KEY || 'missing_key' 
+  });
+};
 
 const generateQuizTool: FunctionDeclaration = {
   name: 'generateQuiz',
@@ -60,6 +63,7 @@ export const Quizzes = () => {
   const [quizzes, setQuizzes] = useState<any[]>([]);
   const [loadingQuizzes, setLoadingQuizzes] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [generationProgress, setGenerationProgress] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [questionCount, setQuestionCount] = useState<number>(5);
@@ -98,6 +102,26 @@ export const Quizzes = () => {
 
     return () => unsubscribe();
   }, [user]);
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (isGenerating) {
+      setGenerationProgress(0);
+      interval = setInterval(() => {
+        setGenerationProgress((prev) => {
+          // Fast progress initially, then slows down
+          if (prev < 30) return prev + Math.random() * 15;
+          if (prev < 70) return prev + Math.random() * 8;
+          if (prev < 90) return prev + Math.random() * 3;
+          if (prev < 98) return prev + Math.random() * 0.5;
+          return prev;
+        });
+      }, 500);
+    } else {
+      setGenerationProgress(0);
+    }
+    return () => clearInterval(interval);
+  }, [isGenerating]);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -177,13 +201,13 @@ export const Quizzes = () => {
 
       currentParts.push({ text: `Please thoroughly analyze the content of this document and generate a structured multiple-choice quiz with EXACTLY ${questionCount} questions based on the key learning concepts within it.` });
 
-      const response = await withRetry(() => ai.models.generateContent({
-        model: 'gemini-3.5-flash',
+      const response = await withRetry(() => getAIClient().models.generateContent({
+        model: 'gemini-3.1-pro-preview',
         contents: [
           { role: 'user', parts: currentParts }
         ],
         config: {
-          systemInstruction: `You are an expert educational AI. Your single task is to generate a relevant, highly-accurate multiple-choice quiz with exactly ${questionCount} questions based on the document provided. Important: When generating math or science questions, ALWAYS format mathematical equations, variables, and expressions using standard LaTeX syntax. Use \`$...\$\` for inline math and \`$$...$$\` for block equations.`,
+          systemInstruction: `You are an expert educational AI. Your single task is to generate a relevant, highly-accurate multiple-choice quiz with exactly ${questionCount} questions based on the document provided. Important: Ensure the correct answer is completely randomized among the available options (A, B, C, D) for each question so there is no predictable pattern (like mostly A, or A-B-C-D). When generating math or science questions, ALWAYS format mathematical equations, variables, and expressions using standard LaTeX syntax. Use \`$...\$\` for inline math and \`$$...$$\` for block equations.`,
           responseMimeType: 'application/json',
           responseSchema: {
             type: Type.OBJECT,
@@ -243,6 +267,8 @@ export const Quizzes = () => {
       let errorMessage = error.message || "Unknown error";
       if (errorMessage.includes("503") || errorMessage.includes("high demand") || errorMessage.includes("UNAVAILABLE")) {
         errorMessage = "The AI model is currently experiencing high demand. Please try again in a few moments.";
+      } else if (errorMessage.toLowerCase().includes("quota") || errorMessage.includes("429")) {
+        errorMessage = "You have exceeded your AI generation quota. Please add a custom free Gemini API key in the Settings page to continue using the app.";
       } else if (errorMessage.includes("{")) {
         try {
             const jsonPart = errorMessage.substring(errorMessage.indexOf("{"));
@@ -251,6 +277,8 @@ export const Quizzes = () => {
                 errorMessage = parsed.error.message;
                 if (errorMessage.includes("high demand")) {
                     errorMessage = "The AI model is currently experiencing high demand. Please try again in a few moments.";
+                } else if (errorMessage.toLowerCase().includes("quota") || errorMessage.includes("429")) {
+                    errorMessage = "You have exceeded your AI generation quota. Please add a custom free Gemini API key in the Settings page to continue using the app.";
                 }
             }
         } catch (e) {
@@ -260,7 +288,7 @@ export const Quizzes = () => {
 
       setModalState({
         isOpen: true,
-        title: errorMessage.includes("high demand") ? 'High Demand' : 'Error',
+        title: errorMessage.includes("quota") ? 'Quota Exceeded' : (errorMessage.includes("high demand") ? 'High Demand' : 'Error'),
         message: errorMessage
       });
     } finally {
@@ -303,7 +331,7 @@ export const Quizzes = () => {
                 {isGenerating ? (
                   <>
                     <Loader2 className="w-5 h-5 animate-spin" />
-                    Generating...
+                    Generating {Math.round(generationProgress)}%...
                   </>
                 ) : (
                   <>
@@ -337,7 +365,7 @@ export const Quizzes = () => {
                 {isGenerating ? (
                   <>
                     <Loader2 className="w-5 h-5 animate-spin" />
-                    Generating Quiz...
+                    Generating {Math.round(generationProgress)}%...
                   </>
                 ) : (
                   <>
